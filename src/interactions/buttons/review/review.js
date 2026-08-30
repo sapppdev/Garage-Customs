@@ -14,14 +14,6 @@ export default {
 
     async execute(interaction, client, args) {
         try {
-            /*
-             * args:
-             * 0 = customerId
-             * 1 = reviewChannelId
-             * 2 = ticketChannelId
-             * 3 = rating
-             */
-
             const [
                 customerId,
                 reviewChannelId,
@@ -46,7 +38,7 @@ export default {
                 );
             }
 
-            // Customer only.
+            // Only the selected customer can review
             if (
                 interaction.user.id !==
                 customerId
@@ -66,6 +58,9 @@ export default {
                 Number(rating);
 
             if (
+                !Number.isInteger(
+                    ratingNumber
+                ) ||
                 ratingNumber < 1 ||
                 ratingNumber > 5
             ) {
@@ -81,27 +76,30 @@ export default {
             }
 
             const stars =
-                '⭐'.repeat(ratingNumber);
+                '⭐'.repeat(
+                    ratingNumber
+                );
 
             const modal =
                 new ModalBuilder()
                     .setCustomId(
-                        `garage_review_modal:${customerId}:${reviewChannelId}:${ticketChannelId}:${rating}`
+                        `garage_review_modal:${customerId}:${reviewChannelId}:${ticketChannelId}:${ratingNumber}`
                     )
                     .setTitle(
-                        `${rating} Star Review`
+                        `${stars} Your Review`
                     );
 
+            // Feedback
             const feedback =
                 new TextInputBuilder()
                     .setCustomId(
                         'review_feedback'
                     )
                     .setLabel(
-                        'Tell us about your experience'
+                        'Your Feedback'
                     )
                     .setPlaceholder(
-                        'Write your feedback about Garage Customs...'
+                        'Tell us about your experience with Garage Customs...'
                     )
                     .setStyle(
                         TextInputStyle.Paragraph
@@ -110,15 +108,37 @@ export default {
                     .setMinLength(5)
                     .setMaxLength(1000);
 
+            // Optional image URL
+            const image =
+                new TextInputBuilder()
+                    .setCustomId(
+                        'review_image'
+                    )
+                    .setLabel(
+                        'Picture (Optional)'
+                    )
+                    .setPlaceholder(
+                        'Paste an image URL here (optional)...'
+                    )
+                    .setStyle(
+                        TextInputStyle.Short
+                    )
+                    .setRequired(false)
+                    .setMaxLength(1000);
+
             modal.addComponents(
                 new ActionRowBuilder()
                     .addComponents(
                         feedback
+                    ),
+
+                new ActionRowBuilder()
+                    .addComponents(
+                        image
                     )
             );
 
-            // This acknowledges the button interaction
-            // immediately by opening the modal.
+            // Immediately open modal
             await interaction.showModal(
                 modal
             );
@@ -127,7 +147,8 @@ export default {
                 'Garage Customs review modal opened',
                 {
                     customerId,
-                    rating,
+                    rating:
+                        ratingNumber,
                     ticketChannelId,
                     reviewChannelId
                 }
