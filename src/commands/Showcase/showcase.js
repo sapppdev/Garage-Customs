@@ -9,7 +9,7 @@ import {
 export default {
     data: new SlashCommandBuilder()
         .setName('showcase')
-        .setDescription('Mag-upload ng car showcase sa showroom')
+        .setDescription('Mag-upload ng car showcase (4 na larawan agad)')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addStringOption(option =>
             option
@@ -28,8 +28,26 @@ export default {
         .addAttachmentOption(option =>
             option
                 .setName('image1')
-                .setDescription('Unang larawan ng sasakyan')
+                .setDescription('📸 Unang larawan (required)')
                 .setRequired(true)
+        )
+        .addAttachmentOption(option =>
+            option
+                .setName('image2')
+                .setDescription('📸 Pangalawang larawan (optional)')
+                .setRequired(false)
+        )
+        .addAttachmentOption(option =>
+            option
+                .setName('image3')
+                .setDescription('📸 Pangatlong larawan (optional)')
+                .setRequired(false)
+        )
+        .addAttachmentOption(option =>
+            option
+                .setName('image4')
+                .setDescription('📸 Pang-apat na larawan (optional)')
+                .setRequired(false)
         ),
 
     category: 'Showroom',
@@ -38,145 +56,76 @@ export default {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const currentChannel = interaction.channel;
-
-        // ✅ Suriin kung ang channel ay Forum Channel
-        console.log('📌 Channel Type:', currentChannel.type);
-        console.log('📌 Channel Name:', currentChannel.name);
-        console.log('📌 Channel ID:', currentChannel.id);
-
-        if (currentChannel.type !== ChannelType.GuildForum) {
-            // Ipakita kung anong uri ng channel ito
-            const channelTypeNames = {
-                [ChannelType.GuildText]: 'Text Channel',
-                [ChannelType.GuildVoice]: 'Voice Channel',
-                [ChannelType.GuildCategory]: 'Category',
-                [ChannelType.GuildAnnouncement]: 'Announcement Channel',
-                [ChannelType.GuildForum]: 'Forum Channel',
-                [ChannelType.GuildMedia]: 'Media Channel'
-            };
-            const typeName = channelTypeNames[currentChannel.type] || `Unknown (${currentChannel.type})`;
-
-            return await interaction.editReply({
-                content: `❌ **Mali ang channel!**\n\n` +
-                         `Kasalukuyang channel: **#${currentChannel.name}** (${typeName})\n` +
-                         `Kailangan: **Forum Channel**\n\n` +
-                         `📌 Pumunta ka sa **#car-showcase** at subukan muli.`
-            });
-        }
+        const isForum = currentChannel.type === ChannelType.GuildForum;
 
         // Kunin ang mga input
         const title = interaction.options.getString('title').trim();
         const description = interaction.options.getString('description').trim();
         const image1 = interaction.options.getAttachment('image1');
+        const image2 = interaction.options.getAttachment('image2');
+        const image3 = interaction.options.getAttachment('image3');
+        const image4 = interaction.options.getAttachment('image4');
 
-        // I-validate kung ang attachment ay isang image
-        if (!image1.contentType || !image1.contentType.startsWith('image/')) {
-            return await interaction.editReply({
-                content: '❌ Dapat image file ang i-upload (jpeg, png, gif, webp, etc.)'
-            });
+        // I-validate ang mga images
+        const images = [image1, image2, image3, image4].filter(img => img !== null);
+        
+        // I-validate kung lahat ay images
+        for (const img of images) {
+            if (!img.contentType || !img.contentType.startsWith('image/')) {
+                return await interaction.editReply({
+                    content: `❌ Ang file na **${img.name}** ay hindi image. Please upload image files only.`
+                });
+            }
         }
 
         try {
-            // --- I-download ang unang larawan ---
-            const response1 = await fetch(image1.url, {
-                headers: { Authorization: `Bot ${interaction.client.token}` }
-            });
-            if (!response1.ok) throw new Error(`Failed to download image: ${response1.status}`);
-            const buffer1 = await response1.arrayBuffer();
-            const attachment1 = {
-                attachment: Buffer.from(buffer1),
-                name: image1.name || 'car-image1.png'
-            };
-
-            // --- Gumawa ng bagong thread ---
-            const thread = await currentChannel.threads.create({
-                name: title,
-                autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-                message: {
-                    content: `🚗 **${title}**\n\n${description}`,
-                    files: [attachment1]
-                }
-            });
-
-            // I-confirm
-            await interaction.editReply({
-                content: `✅ **Thread created!**\n📌 ${thread.url}\n\n` +
-                         `📸 Puwede kang mag-upload ng hanggang **3 additional images**.\n` +
-                         `Mag-attach lang ng larawan sa **channel na ito** (hindi sa thread).\n` +
-                         `⏳ Maghihintay ako ng 2 minuto per image.\n` +
-                         `I-type ang **"done"** para tapusin agad.`
-            });
-
-            // --- Maghintay ng additional images ---
-            const maxAdditional = 3;
-            let uploadedCount = 0;
-
-            while (uploadedCount < maxAdditional) {
-                try {
-                    const collected = await currentChannel.awaitMessages({
-                        filter: msg =>
-                            msg.author.id === interaction.user.id &&
-                            msg.attachments.size > 0 &&
-                            !msg.content.toLowerCase().includes('done'),
-                        max: 1,
-                        time: 120000,
-                        errors: ['time']
-                    });
-
-                    const msg = collected.first();
-                    const attachment = msg.attachments.first();
-
-                    if (!attachment || !attachment.contentType || !attachment.contentType.startsWith('image/')) {
-                        await msg.delete().catch(() => {});
-                        await interaction.editReply({
-                            content: `⚠️ Hindi image ang na-upload. Mag-upload ng image file.`
-                        });
-                        continue;
-                    }
-
-                    const response = await fetch(attachment.url, {
-                        headers: { Authorization: `Bot ${interaction.client.token}` }
-                    });
-                    if (!response.ok) throw new Error(`Failed to download: ${response.status}`);
-                    const buffer = await response.arrayBuffer();
-                    const fileAttachment = {
-                        attachment: Buffer.from(buffer),
-                        name: attachment.name || `car-image${uploadedCount + 2}.png`
-                    };
-
-                    await thread.send({
-                        content: `📸 Additional image ${uploadedCount + 1}`,
-                        files: [fileAttachment]
-                    });
-
-                    uploadedCount++;
-                    await msg.delete().catch(() => {});
-
-                    if (uploadedCount < maxAdditional) {
-                        await interaction.editReply({
-                            content: `✅ **${uploadedCount}/${maxAdditional}** additional images uploaded.\n` +
-                                     `📸 Puwede ka pang mag-upload ng **${maxAdditional - uploadedCount}** image(s).\n` +
-                                     `I-type ang **"done"** para tapusin agad.`
-                        });
-                    }
-
-                } catch (error) {
-                    if (error.code === 'time') {
-                        await interaction.editReply({
-                            content: `⏳ No more images received. Proceeding with ${uploadedCount} additional images.`
-                        });
-                        break;
-                    } else {
-                        throw error;
-                    }
-                }
+            // I-download ang lahat ng images
+            const attachments = [];
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                const response = await fetch(img.url, {
+                    headers: { Authorization: `Bot ${interaction.client.token}` }
+                });
+                if (!response.ok) throw new Error(`Failed to download image ${i + 1}: ${response.status}`);
+                const buffer = await response.arrayBuffer();
+                attachments.push({
+                    attachment: Buffer.from(buffer),
+                    name: img.name || `car-image${i + 1}.png`
+                });
             }
 
-            await interaction.editReply({
-                content: `✅ **Car showcase completed!**\n` +
-                         `📌 Thread: ${thread.url}\n` +
-                         `📸 Total images: **${uploadedCount + 1}** (1 initial + ${uploadedCount} additional)`
-            });
+            // BUILd content
+            let content = `🚗 **${title}**\n\n${description}`;
+            
+            // Add image count
+            content += `\n\n📸 **${attachments.length} images uploaded**`;
+
+            // --- KUNG FORUM CHANNEL: Gumawa ng thread ---
+            if (isForum) {
+                const thread = await currentChannel.threads.create({
+                    name: title,
+                    autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+                    message: {
+                        content: content,
+                        files: attachments
+                    }
+                });
+
+                await interaction.editReply({
+                    content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n📸 ${attachments.length} images uploaded.`
+                });
+            } 
+            // --- KUNG TEXT CHANNEL: Send as normal message ---
+            else {
+                await currentChannel.send({
+                    content: content,
+                    files: attachments
+                });
+
+                await interaction.editReply({
+                    content: `✅ **Car showcase posted!**\n📌 <#${currentChannel.id}>\n📸 ${attachments.length} images uploaded.`
+                });
+            }
 
         } catch (error) {
             console.error('Showcase error:', error);
