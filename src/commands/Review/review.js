@@ -14,7 +14,9 @@ import { getColor } from '../../config/bot.js';
 export default {
     data: new SlashCommandBuilder()
         .setName('review')
-        .setDescription('Request a customer review for Garage Customs.')
+        .setDescription(
+            'Request a customer review for Garage Customs.'
+        )
 
         .setDefaultMemberPermissions(
             PermissionFlagsBits.ManageMessages
@@ -33,9 +35,11 @@ export default {
             option
                 .setName('review_channel')
                 .setDescription(
-                    'Where the completed review will be posted. Optional if #customer-reviews exists.'
+                    'Review channel. Leave empty to use #customer-reviews.'
                 )
-                .addChannelTypes(ChannelType.GuildText)
+                .addChannelTypes(
+                    ChannelType.GuildText
+                )
                 .setRequired(false)
         ),
 
@@ -51,13 +55,13 @@ export default {
                     'review_channel'
                 );
 
-            // If no channel was selected,
-            // automatically find #customer-reviews.
+            // Automatically find #customer-reviews
             if (!reviewChannel) {
                 reviewChannel =
                     interaction.guild.channels.cache.find(
                         channel =>
-                            channel.type === ChannelType.GuildText &&
+                            channel.type ===
+                                ChannelType.GuildText &&
                             [
                                 'customer-reviews',
                                 'customer-review',
@@ -71,10 +75,10 @@ export default {
             if (!reviewChannel) {
                 return await interaction.reply({
                     content:
-                        '❌ I could not find a review channel.\n\n' +
-                        'Create a channel named `#customer-reviews` ' +
-                        'or use the `review_channel` option.',
-                    flags: MessageFlags.Ephemeral
+                        '❌ I could not find the review channel.\n\n' +
+                        'Please create a channel named `#customer-reviews`.',
+                    flags:
+                        MessageFlags.Ephemeral
                 });
             }
 
@@ -82,18 +86,19 @@ export default {
                 return await interaction.reply({
                     content:
                         '❌ Bots cannot submit customer reviews.',
-                    flags: MessageFlags.Ephemeral
+                    flags:
+                        MessageFlags.Ephemeral
                 });
             }
 
-            const ticketChannelId =
-                interaction.channel.id;
+            const customerId =
+                customer.id;
 
             const reviewChannelId =
                 reviewChannel.id;
 
-            const customerId =
-                customer.id;
+            const ticketChannelId =
+                interaction.channel.id;
 
             const embed =
                 new EmbedBuilder()
@@ -107,12 +112,13 @@ export default {
 
                         '**Please select your rating below:**\n\n' +
 
-                        '⭐ **1 Star** — Very Bad\n' +
-                        '⭐⭐ **2 Stars** — Bad\n' +
-                        '⭐⭐⭐ **3 Stars** — Average\n' +
-                        '⭐⭐⭐⭐ **4 Stars** — Good\n' +
-                        '⭐⭐⭐⭐⭐ **5 Stars** — Excellent\n\n' +
+                        '⭐ **1 Star**\n' +
+                        '⭐⭐ **2 Stars**\n' +
+                        '⭐⭐⭐ **3 Stars**\n' +
+                        '⭐⭐⭐⭐ **4 Stars**\n' +
+                        '⭐⭐⭐⭐⭐ **5 Stars**\n\n' +
 
+                        '**💬 Feedback**\n' +
                         'After selecting a rating, you will be asked to write your feedback.'
                     )
                     .setColor(
@@ -123,16 +129,6 @@ export default {
                             'Garage Customs • Customer Review'
                     })
                     .setTimestamp();
-
-            /*
-             * customId format:
-             *
-             * garage_review:
-             * customerId:
-             * reviewChannelId:
-             * ticketChannelId:
-             * rating
-             */
 
             const row =
                 new ActionRowBuilder()
@@ -197,9 +193,10 @@ export default {
 
             await interaction.reply({
                 content:
-                    `✅ Review request sent for ${customer}.\n` +
-                    `Completed reviews will be posted in ${reviewChannel}.`,
-                flags: MessageFlags.Ephemeral
+                    `✅ Review request sent to ${customer}.\n` +
+                    `Reviews will be posted in ${reviewChannel}.`,
+                flags:
+                    MessageFlags.Ephemeral
             });
 
         } catch (error) {
