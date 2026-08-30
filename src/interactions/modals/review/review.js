@@ -3,7 +3,8 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
-    MessageFlags
+    MessageFlags,
+    AttachmentBuilder
 } from 'discord.js';
 
 import { InteractionHelper } from '../../../utils/interactionHelper.js';
@@ -24,7 +25,6 @@ export default {
                 panelMessageId
             ] = args;
 
-            // VALIDATION
             if (!customerId || !reviewChannelId || !ticketChannelId || !ratingString) {
                 return await InteractionHelper.safeReply(interaction, {
                     content: '❌ Invalid review submission.',
@@ -55,12 +55,11 @@ export default {
                 });
             }
 
-            // ACKNOWLEDGE
             await InteractionHelper.safeDefer(interaction, { flags: MessageFlags.Ephemeral });
 
             const guild = interaction.guild;
 
-            // GET TICKET CHANNEL
+            // Get ticket channel
             const ticketChannel = guild.channels.cache.get(ticketChannelId) ||
                                   await guild.channels.fetch(ticketChannelId).catch(() => null);
             if (!ticketChannel || !ticketChannel.isTextBased()) {
@@ -71,7 +70,7 @@ export default {
 
             const stars = '⭐'.repeat(rating);
 
-            // SEND PICTURE PROMPT
+            // Send picture prompt
             const photoMessage = await ticketChannel.send({
                 content: `${interaction.user}\n\n` +
                          `⭐ Your rating: ${stars}\n\n` +
@@ -95,7 +94,7 @@ export default {
                          'The review will be posted automatically after your picture is sent, or when you click **Skip Picture**.'
             });
 
-            // WAIT FOR PICTURE OR SKIP
+            // Wait for picture or skip
             const messagePromise = ticketChannel.awaitMessages({
                 filter: msg => msg.author.id === customerId,
                 max: 1,
@@ -113,16 +112,30 @@ export default {
                 buttonPromise.then(btn => ({ type: 'skip', interaction: btn }))
             ]).catch(() => null);
 
-            let imageUrl = null;
+            let imageAttachment = null;
 
             if (result && result.type === 'message' && result.message) {
                 const msg = result.message;
                 const image = msg.attachments.find(att => att.contentType && att.contentType.startsWith('image/'));
                 if (image) {
-                    imageUrl = image.url;
-                    console.log('📸 Image URL from attachment:', imageUrl);
-                } else {
-                    console.log('⚠️ No image found in the uploaded message');
+                    try {
+                        // Download the image using the bot token
+                        const response = await axios.get(image.url, {
+                            responseType: 'arraybuffer',
+                            headers: {
+                                Authorization: `Bot ${client.token}`
+                            }
+                        });
+                        const buffer = Buffer.from(response.data);
+                        // Determine file extension from content-type
+                        const contentType = response.headers['content-type'] || 'image/png';
+                        const ext = contentType.split('/')[1] || 'png';
+                        imageAttachment = new AttachmentBuilder(buffer, { name: `review-image.${ext}` });
+                        logger.info('✅ Image downloaded and attached successfully');
+                    } catch (downloadError) {
+                        logger.error('❌ Failed to download image:', downloadError);
+                        // Continue without image
+                    }
                 }
                 await msg.delete().catch(() => {});
             }
@@ -138,7 +151,7 @@ export default {
                 });
             }
 
-            // GET REVIEW CHANNEL
+            // Get review channel
             const reviewChannel = guild.channels.cache.get(reviewChannelId) ||
                                   await guild.channels.fetch(reviewChannelId).catch(() => null);
             if (!reviewChannel || !reviewChannel.isTextBased()) {
@@ -147,56 +160,32 @@ export default {
                 });
             }
 
-            // --- PREPARE REVIEW CONTENT ---
+            // Build review message (plain text)
             let reviewContent = `⭐ **Customer Review**\n\n` +
                                 `**Customer:** ${interaction.user}\n` +
                                 `**Rating:** ${stars}\n\n` +
                                 `**💬 Feedback:**\n${feedback}`;
 
-            console.log('📝 Review content:', reviewContent);
-            console.log('📸 Image URL to send:', imageUrl);
-
-            // --- METHOD 1: Try plain text + URL ---
-            if (imageUrl) {
-                reviewContent += `\n\n${imageUrl}`;
-            }
-
-            await reviewChannel.send({
+            // Send with attachment (if any)
+            const messageOptions = {
                 content: reviewContent
-            });
-
-            // --- ALTERNATIVE: Kung hindi gumana ang plain text, subukan ang embed ---
-            // I-uncomment ito kung hindi gumana ang plain text
-            /*
-            const reviewEmbed = new EmbedBuilder()
-                .setTitle('⭐ Customer Review')
-                .setDescription(
-                    `**Customer:** ${interaction.user}\n\n` +
-                    `**Rating:** ${stars}\n\n` +
-                    `**💬 Feedback:**\n${feedback}`
-                )
-                .setColor(getColor('primary') || '#00FF00')
-                .setTimestamp();
-
-            if (imageUrl) {
-                reviewEmbed.setImage(imageUrl);
+            };
+            if (imageAttachment) {
+                messageOptions.files = [imageAttachment];
             }
 
-            await reviewChannel.send({
-                embeds: [reviewEmbed]
-            });
-            */
+            await reviewChannel.send(messageOptions);
 
-            // --- DELETE ORIGINAL PANEL ---
+            // Delete original rating panel using panelMessageId
             if (panelMessageId) {
                 const panelMessage = await ticketChannel.messages.fetch(panelMessageId).catch(() => null);
                 if (panelMessage) await panelMessage.delete().catch(() => {});
             }
 
-            // --- DELETE PICTURE PROMPT ---
+            // Delete picture prompt
             await photoMessage.delete().catch(() => {});
 
-            // --- CONFIRMATION ---
+            // Confirmation in ticket
             await ticketChannel.send({
                 content: `✅ ${interaction.user}, thank you for your ${stars} review!`
             }).catch(() => {});
@@ -209,7 +198,7 @@ export default {
                 guildId: interaction.guildId,
                 userId: interaction.user.id,
                 rating,
-                hasImage: Boolean(imageUrl),
+                hasImage: Boolean(imageAttachment),
                 ticketChannelId,
                 reviewChannelId
             });
