@@ -61,15 +61,13 @@ export default {
                 name: file.name
             };
 
-            // ✅ BINAGO: wala nang file size
-
-
+            // ✅ WALA NANG TEXT — file lang
             if (isForum) {
                 const thread = await currentChannel.threads.create({
-                    name: file.name,
+                    name: file.name, // Pamagat ng thread (kailangan)
                     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
                     message: {
-                        content: content,
+                        // Walang content — file lang
                         files: [attachment]
                     }
                 });
@@ -79,7 +77,7 @@ export default {
                 });
             } else {
                 await currentChannel.send({
-                    content: content,
+                    // Walang content — file lang
                     files: [attachment]
                 });
 
