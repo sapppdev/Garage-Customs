@@ -36,7 +36,7 @@ export default {
             });
         }
 
-        // I-check ang file size (Discord limit: 25MB, or 500MB if boosted)
+        // I-check ang file size (Discord limit: 25MB)
         const maxSize = 25 * 1024 * 1024; // 25MB
         if (file.size > maxSize) {
             return await interaction.editReply({
@@ -47,7 +47,6 @@ export default {
 
         const currentChannel = interaction.channel;
         const isForum = currentChannel.type === ChannelType.GuildForum;
-        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
 
         try {
             // I-download ang file
@@ -62,10 +61,10 @@ export default {
                 name: file.name
             };
 
-            const content = `📁 **${file.name}**\n📦 ${sizeMB} MB`;
+            // ✅ BINAGO: wala nang file size
+            const content = `📁 **${file.name}**`;
 
             if (isForum) {
-                // Forum channel: gumawa ng thread
                 const thread = await currentChannel.threads.create({
                     name: file.name,
                     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
@@ -79,7 +78,6 @@ export default {
                     content: `✅ **File uploaded!**\n📌 ${thread.url}`
                 });
             } else {
-                // Text channel: send message
                 await currentChannel.send({
                     content: content,
                     files: [attachment]
