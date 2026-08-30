@@ -9,7 +9,7 @@ import {
 export default {
     data: new SlashCommandBuilder()
         .setName('showcase')
-        .setDescription('Mag-upload ng car showcase sa showroom (forum channel)')
+        .setDescription('Mag-upload ng car showcase sa showroom')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .addStringOption(option =>
             option
@@ -35,15 +35,32 @@ export default {
     category: 'Showroom',
 
     async execute(interaction) {
-        // I-defer agad para hindi mag-timeout
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         const currentChannel = interaction.channel;
 
-        // ✅ Suriin kung ang kasalukuyang channel ay isang Forum Channel
+        // ✅ Suriin kung ang channel ay Forum Channel
+        console.log('📌 Channel Type:', currentChannel.type);
+        console.log('📌 Channel Name:', currentChannel.name);
+        console.log('📌 Channel ID:', currentChannel.id);
+
         if (currentChannel.type !== ChannelType.GuildForum) {
+            // Ipakita kung anong uri ng channel ito
+            const channelTypeNames = {
+                [ChannelType.GuildText]: 'Text Channel',
+                [ChannelType.GuildVoice]: 'Voice Channel',
+                [ChannelType.GuildCategory]: 'Category',
+                [ChannelType.GuildAnnouncement]: 'Announcement Channel',
+                [ChannelType.GuildForum]: 'Forum Channel',
+                [ChannelType.GuildMedia]: 'Media Channel'
+            };
+            const typeName = channelTypeNames[currentChannel.type] || `Unknown (${currentChannel.type})`;
+
             return await interaction.editReply({
-                content: '❌ Ang command na ito ay **dapat gamitin sa isang Forum Channel** (e.g., Showroom).'
+                content: `❌ **Mali ang channel!**\n\n` +
+                         `Kasalukuyang channel: **#${currentChannel.name}** (${typeName})\n` +
+                         `Kailangan: **Forum Channel**\n\n` +
+                         `📌 Pumunta ka sa **#car-showcase** at subukan muli.`
             });
         }
 
@@ -60,7 +77,7 @@ export default {
         }
 
         try {
-            // --- I-download ang unang larawan gamit ang bot token ---
+            // --- I-download ang unang larawan ---
             const response1 = await fetch(image1.url, {
                 headers: { Authorization: `Bot ${interaction.client.token}` }
             });
@@ -71,7 +88,7 @@ export default {
                 name: image1.name || 'car-image1.png'
             };
 
-            // --- Gumawa ng bagong thread (post) sa Forum Channel ---
+            // --- Gumawa ng bagong thread ---
             const thread = await currentChannel.threads.create({
                 name: title,
                 autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
@@ -79,20 +96,18 @@ export default {
                     content: `🚗 **${title}**\n\n${description}`,
                     files: [attachment1]
                 }
-                // Kung may tags, idagdag ang appliedTags array dito
-                // appliedTags: ['tag-id-1', 'tag-id-2']
             });
 
-            // I-confirm sa user
+            // I-confirm
             await interaction.editReply({
                 content: `✅ **Thread created!**\n📌 ${thread.url}\n\n` +
-                         `📸 **Puwede ka pang mag-upload ng hanggang 3 additional images** sa thread na ito.\n` +
-                         `Mag-attach lang ng larawan sa **kasalukuyang channel** (hindi sa thread).\n` +
-                         `⏳ Maghihintay ako ng hanggang 2 minuto per image.\n` +
-                         `I-type ang **"done"** (sa channel) para tapusin agad.`
+                         `📸 Puwede kang mag-upload ng hanggang **3 additional images**.\n` +
+                         `Mag-attach lang ng larawan sa **channel na ito** (hindi sa thread).\n` +
+                         `⏳ Maghihintay ako ng 2 minuto per image.\n` +
+                         `I-type ang **"done"** para tapusin agad.`
             });
 
-            // --- Maghintay ng additional images (max 3) ---
+            // --- Maghintay ng additional images ---
             const maxAdditional = 3;
             let uploadedCount = 0;
 
@@ -102,18 +117,16 @@ export default {
                         filter: msg =>
                             msg.author.id === interaction.user.id &&
                             msg.attachments.size > 0 &&
-                            // Puwede ring i-detect ang "done"
                             !msg.content.toLowerCase().includes('done'),
                         max: 1,
-                        time: 120000, // 2 minuto
+                        time: 120000,
                         errors: ['time']
                     });
 
                     const msg = collected.first();
-                    // Kunin ang unang attachment
                     const attachment = msg.attachments.first();
+
                     if (!attachment || !attachment.contentType || !attachment.contentType.startsWith('image/')) {
-                        // Kung hindi image, i-skip at i-delete ang mensahe
                         await msg.delete().catch(() => {});
                         await interaction.editReply({
                             content: `⚠️ Hindi image ang na-upload. Mag-upload ng image file.`
@@ -121,39 +134,33 @@ export default {
                         continue;
                     }
 
-                    // I-download ang larawan gamit ang bot token
                     const response = await fetch(attachment.url, {
                         headers: { Authorization: `Bot ${interaction.client.token}` }
                     });
-                    if (!response.ok) throw new Error(`Failed to download additional image: ${response.status}`);
+                    if (!response.ok) throw new Error(`Failed to download: ${response.status}`);
                     const buffer = await response.arrayBuffer();
                     const fileAttachment = {
                         attachment: Buffer.from(buffer),
                         name: attachment.name || `car-image${uploadedCount + 2}.png`
                     };
 
-                    // I-send sa thread
                     await thread.send({
                         content: `📸 Additional image ${uploadedCount + 1}`,
                         files: [fileAttachment]
                     });
 
                     uploadedCount++;
-
-                    // I-delete ang mensahe ng user para malinis
                     await msg.delete().catch(() => {});
 
-                    // Update status
                     if (uploadedCount < maxAdditional) {
                         await interaction.editReply({
                             content: `✅ **${uploadedCount}/${maxAdditional}** additional images uploaded.\n` +
                                      `📸 Puwede ka pang mag-upload ng **${maxAdditional - uploadedCount}** image(s).\n` +
-                                     `I-type ang **"done"** (sa channel) para tapusin agad.`
+                                     `I-type ang **"done"** para tapusin agad.`
                         });
                     }
 
                 } catch (error) {
-                    // Timeout – walang na-upload sa loob ng 2 minuto
                     if (error.code === 'time') {
                         await interaction.editReply({
                             content: `⏳ No more images received. Proceeding with ${uploadedCount} additional images.`
@@ -165,7 +172,6 @@ export default {
                 }
             }
 
-            // --- Final confirmation ---
             await interaction.editReply({
                 content: `✅ **Car showcase completed!**\n` +
                          `📌 Thread: ${thread.url}\n` +
@@ -175,7 +181,7 @@ export default {
         } catch (error) {
             console.error('Showcase error:', error);
             await interaction.editReply({
-                content: `❌ Nagka-error sa pag-upload: ${error.message}`
+                content: `❌ Nagka-error: ${error.message}`
             }).catch(() => {});
         }
     }
