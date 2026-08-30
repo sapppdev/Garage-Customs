@@ -15,14 +15,6 @@ import {
     getColor
 } from '../../../config/bot.js';
 
-const RATING_LABELS = {
-    1: 'Very Bad',
-    2: 'Bad',
-    3: 'Average',
-    4: 'Good',
-    5: 'Excellent'
-};
-
 export default {
     name: 'garage_review_modal',
 
@@ -31,22 +23,14 @@ export default {
         client,
         args
     ) {
-        /*
-         * args:
-         * 0 = customerId
-         * 1 = reviewChannelId
-         * 2 = ticketChannelId
-         * 3 = rating
-         */
-
-        const [
-            customerId,
-            reviewChannelId,
-            ticketChannelId,
-            ratingString
-        ] = args;
-
         try {
+            const [
+                customerId,
+                reviewChannelId,
+                ticketChannelId,
+                ratingString
+            ] = args;
+
             if (
                 !customerId ||
                 !reviewChannelId ||
@@ -64,6 +48,7 @@ export default {
                 );
             }
 
+            // Make sure only the selected customer can submit
             if (
                 interaction.user.id !==
                 customerId
@@ -83,6 +68,7 @@ export default {
                 Number(ratingString);
 
             if (
+                !Number.isInteger(rating) ||
                 rating < 1 ||
                 rating > 5
             ) {
@@ -98,9 +84,7 @@ export default {
             }
 
             /*
-             * Acknowledge the modal ASAP
-             * so Discord won't show
-             * "didn't respond in time".
+             * Acknowledge modal immediately.
              */
             const deferred =
                 await InteractionHelper.safeDefer(
@@ -122,12 +106,20 @@ export default {
                     )
                     .trim();
 
+            // Optional image
+            const image =
+                interaction.fields
+                    .getTextInputValue(
+                        'review_image'
+                    )
+                    .trim();
+
             if (!feedback) {
                 return await InteractionHelper.safeEditReply(
                     interaction,
                     {
                         content:
-                            '❌ Please provide feedback.'
+                            '❌ Please provide your feedback.'
                     }
                 );
             }
@@ -140,7 +132,9 @@ export default {
                     reviewChannelId
                 ) ||
                 await guild.channels
-                    .fetch(reviewChannelId)
+                    .fetch(
+                        reviewChannelId
+                    )
                     .catch(() => null);
 
             if (!reviewChannel) {
@@ -153,45 +147,47 @@ export default {
                 );
             }
 
-            if (!reviewChannel.isTextBased()) {
+            if (
+                !reviewChannel.isTextBased()
+            ) {
                 return await InteractionHelper.safeEditReply(
                     interaction,
                     {
                         content:
-                            '❌ The configured review channel is not a text channel.'
+                            '❌ The review channel is not a text channel.'
                     }
                 );
             }
 
+            /*
+             * ONLY stars are displayed.
+             *
+             * Example:
+             * ⭐⭐⭐⭐⭐
+             *
+             * No 5/5
+             * No "Excellent"
+             */
             const stars =
                 '⭐'.repeat(rating);
-
-            const ratingLabel =
-                RATING_LABELS[rating];
 
             const reviewEmbed =
                 new EmbedBuilder()
                     .setTitle(
-                        `${stars} Customer Review`
+                        '⭐ Customer Review'
                     )
                     .setDescription(
                         `**Customer**\n` +
                         `${interaction.user}\n\n` +
 
                         `**Rating**\n` +
-                        `${stars} **${rating}/5 — ${ratingLabel}**\n\n` +
+                        `${stars}\n\n` +
 
                         `**💬 Feedback**\n` +
                         `${feedback}`
                     )
                     .setColor(
-                        getColor(
-                            rating >= 4
-                                ? 'success'
-                                : rating === 3
-                                    ? 'warning'
-                                    : 'error'
-                        )
+                        getColor('primary')
                     )
                     .setThumbnail(
                         interaction.user
@@ -201,24 +197,53 @@ export default {
                     )
                     .setFooter({
                         text:
-                            'Garage Customs • Verified Customer Review'
+                            'Garage Customs • Customer Review'
                     })
                     .setTimestamp();
 
+            /*
+             * Add picture only if customer
+             * provided an image URL.
+             */
+            if (image) {
+                try {
+                    const parsedUrl =
+                        new URL(image);
+
+                    if (
+                        parsedUrl.protocol ===
+                            'http:' ||
+                        parsedUrl.protocol ===
+                            'https:'
+                    ) {
+                        reviewEmbed.setImage(
+                            image
+                        );
+                    }
+                } catch {
+                    // Invalid image URL:
+                    // simply ignore it.
+                }
+            }
+
+            // Send review to #customer-reviews
             await reviewChannel.send({
-                embeds: [reviewEmbed]
+                embeds: [
+                    reviewEmbed
+                ]
             });
 
             /*
-             * Optional confirmation
-             * inside the ticket.
+             * Confirm inside ticket.
              */
             const ticketChannel =
                 guild.channels.cache.get(
                     ticketChannelId
                 ) ||
                 await guild.channels
-                    .fetch(ticketChannelId)
+                    .fetch(
+                        ticketChannelId
+                    )
                     .catch(() => null);
 
             if (
@@ -227,15 +252,16 @@ export default {
             ) {
                 await ticketChannel.send({
                     content:
-                        `✅ ${interaction.user}, thank you for your **${rating}/5** review!`
+                        `✅ ${interaction.user}, thank you for your **${stars}** review!`
                 }).catch(() => {});
             }
 
+            // Confirm to customer
             await InteractionHelper.safeEditReply(
                 interaction,
                 {
                     content:
-                        `✅ Thank you! Your ${stars} review has been submitted to ${reviewChannel}.`
+                        `✅ Thank you for your review! Your ${stars} feedback has been submitted.`
                 }
             );
 
