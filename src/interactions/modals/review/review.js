@@ -146,12 +146,13 @@ export default {
                                 `**Rating:** ${stars}\n\n` +
                                 `**💬 Feedback:**\n${feedback}`;
 
-            // ✅ FIXED: attach image properly
-            const files = imageUrl ? [{ attachment: imageUrl, name: 'review-image.png' }] : [];
+            // ✅ FIX: Idagdag ang image URL sa content para mag-render bilang larawan
+            if (imageUrl) {
+                reviewContent += `\n\n${imageUrl}`;
+            }
 
             await reviewChannel.send({
-                content: reviewContent,
-                files: files
+                content: reviewContent
             });
 
             // Delete the original rating panel using the saved message ID
