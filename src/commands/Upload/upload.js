@@ -62,7 +62,7 @@ export default {
             };
 
             // ✅ BINAGO: wala nang file size
-            const content = `📁 **${file.name}**`;
+
 
             if (isForum) {
                 const thread = await currentChannel.threads.create({
