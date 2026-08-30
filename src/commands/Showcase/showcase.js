@@ -13,18 +13,17 @@ import {
 export default {
     data: new SlashCommandBuilder()
         .setName('showcase')
-        .setDescription('Mag-upload ng car showcase (modal muna, then images)')
+        .setDescription('Mag-upload ng car showcase (modal + lahat ng images sa isang send)')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     category: 'Showroom',
 
     async execute(interaction) {
-        // --- STEP 1: Gumawa ng Modal para sa Title at Description ---
+        // --- STEP 1: Modal para sa Title at Description ---
         const modal = new ModalBuilder()
             .setCustomId(`showcase_modal_${interaction.id}`)
             .setTitle('Car Showcase');
 
-        // Title input
         const titleInput = new TextInputBuilder()
             .setCustomId('showcase_title')
             .setLabel('🚗 Pamagat ng Sasakyan')
@@ -34,7 +33,6 @@ export default {
             .setMinLength(3)
             .setMaxLength(100);
 
-        // Description input
         const descInput = new TextInputBuilder()
             .setCustomId('showcase_description')
             .setLabel('📝 Detalye ng Sasakyan')
@@ -42,8 +40,7 @@ export default {
             .setPlaceholder(
                 '🔧 4 Spoiler\n' +
                 '🔧 2 Front Bumper\n' +
-                '🔧 1 Exhaust\n' +
-                '🔧 1 Grill\n\n' +
+                '🔧 1 Exhaust\n\n' +
                 'Wheels\n' +
                 '🛞 RAYS Volk Racing TE37'
             )
@@ -51,16 +48,13 @@ export default {
             .setMinLength(10)
             .setMaxLength(1900);
 
-        // Add components to modal
         modal.addComponents(
             new ActionRowBuilder().addComponents(titleInput),
             new ActionRowBuilder().addComponents(descInput)
         );
 
-        // Ipakita ang modal
         await interaction.showModal(modal);
 
-        // --- STEP 2: Hintayin ang modal submission ---
         const filter = (i) =>
             i.customId === `showcase_modal_${interaction.id}` &&
             i.user.id === interaction.user.id;
@@ -68,13 +62,11 @@ export default {
         try {
             const modalInteraction = await interaction.awaitModalSubmit({
                 filter,
-                time: 300000 // 5 minutes
+                time: 300000
             });
 
-            // I-defer agad para hindi mag-timeout
             await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            // Kunin ang title at description
             const title = modalInteraction.fields.getTextInputValue('showcase_title').trim();
             const description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
 
@@ -84,133 +76,119 @@ export default {
                 });
             }
 
-            // --- STEP 3: Maghintay ng mga larawan (hanggang 4) ---
+            // --- STEP 2: Maghintay ng ISANG mensahe na may mga larawan ---
             const currentChannel = interaction.channel;
 
             await modalInteraction.editReply({
-                content: `📸 **Mag-upload ng hanggang 4 na larawan** sa channel na ito.\n\n` +
+                content: `📸 **Mag-upload ng hanggang 4 na larawan** sa isang mensahe.\n\n` +
                          `Title: **${title}**\n\n` +
-                         `⏳ Maghihintay ako ng mga larawan (max 4).\n` +
-                         `I-type ang **"done"** para tapusin agad.\n` +
-                         `⏱️ Mag-e-expire sa 5 minuto.`
+                         `📎 Pumili ng **1 hanggang 4 na larawan** at i-send sa channel na ito.\n` +
+                         `⏳ Maghihintay ako ng 5 minuto.\n` +
+                         `I-type ang **"done"** para magpatuloy (kung walang images, cancel).`
             });
 
-            // Kolektahin ang mga larawan
-            const collectedImages = [];
-            const maxImages = 4;
+            // Hintayin ang isang mensahe
+            const collected = await currentChannel.awaitMessages({
+                filter: msg =>
+                    msg.author.id === interaction.user.id,
+                max: 1,
+                time: 300000,
+                errors: ['time']
+            });
 
-            while (collectedImages.length < maxImages) {
-                try {
-                    const collected = await currentChannel.awaitMessages({
-                        filter: msg =>
-                            msg.author.id === interaction.user.id &&
-                            msg.attachments.size > 0 &&
-                            !msg.content.toLowerCase().includes('done'),
-                        max: 1,
-                        time: 300000, // 5 minutes total
-                        errors: ['time']
-                    });
+            const msg = collected.first();
+            const content = msg.content.toLowerCase().trim();
 
-                    const msg = collected.first();
-                    const attachment = msg.attachments.first();
-
-                    if (!attachment || !attachment.contentType || !attachment.contentType.startsWith('image/')) {
-                        await msg.delete().catch(() => {});
-                        await modalInteraction.editReply({
-                            content: `⚠️ Hindi image ang na-upload. Mag-upload ng image file.`
-                        });
-                        continue;
-                    }
-
-                    // I-download ang larawan gamit ang bot token
-                    const response = await fetch(attachment.url, {
-                        headers: { Authorization: `Bot ${interaction.client.token}` }
-                    });
-                    if (!response.ok) throw new Error(`Failed to download image`);
-                    const buffer = await response.arrayBuffer();
-                    collectedImages.push({
-                        attachment: Buffer.from(buffer),
-                        name: attachment.name || `car-image-${collectedImages.length + 1}.png`
-                    });
-
-                    // I-delete ang mensahe ng user para malinis
-                    await msg.delete().catch(() => {});
-
-                    // Update status
-                    const remaining = maxImages - collectedImages.length;
-                    if (remaining > 0) {
-                        await modalInteraction.editReply({
-                            content: `✅ **${collectedImages.length}/${maxImages}** images uploaded.\n` +
-                                     `📸 Puwede ka pang mag-upload ng **${remaining}** image(s).\n` +
-                                     `I-type ang **"done"** para tapusin agad.`
-                        });
-                    }
-
-                } catch (error) {
-                    if (error.code === 'time') {
-                        await modalInteraction.editReply({
-                            content: `⏳ No more images received. Proceeding with ${collectedImages.length} images.`
-                        });
-                        break;
-                    } else {
-                        throw error;
-                    }
-                }
-            }
-
-            // --- STEP 4: I-post ang showcase ---
-            if (collectedImages.length === 0) {
+            // --- STEP 3: Suriin kung "done" o may mga attachments ---
+            if (content === 'done') {
+                await msg.delete().catch(() => {});
                 return await modalInteraction.editReply({
-                    content: '❌ Walang nai-upload na larawan. Cancelled.'
+                    content: '⏹️ Cancelled: Walang nai-upload na larawan.'
                 });
             }
 
+            // Kunin ang lahat ng attachments
+            const attachments = msg.attachments;
+            if (attachments.size === 0) {
+                await msg.delete().catch(() => {});
+                return await modalInteraction.editReply({
+                    content: '❌ Walang nakitang larawan sa mensahe. Pakisama ang mga larawan sa attachment.'
+                });
+            }
+
+            // I-filter ang mga image attachments (hanggang 4)
+            const imageAttachments = attachments.filter(att =>
+                att.contentType && att.contentType.startsWith('image/')
+            );
+
+            if (imageAttachments.size === 0) {
+                await msg.delete().catch(() => {});
+                return await modalInteraction.editReply({
+                    content: '❌ Walang image file na nakitang attachments.'
+                });
+            }
+
+            // Limitahan sa 4 na images
+            const maxImages = 4;
+            const selectedImages = Array.from(imageAttachments.values()).slice(0, maxImages);
+
+            // I-download ang mga images
+            const downloadedImages = [];
+            for (const att of selectedImages) {
+                const response = await fetch(att.url, {
+                    headers: { Authorization: `Bot ${interaction.client.token}` }
+                });
+                if (!response.ok) throw new Error(`Failed to download: ${att.name}`);
+                const buffer = await response.arrayBuffer();
+                downloadedImages.push({
+                    attachment: Buffer.from(buffer),
+                    name: att.name || `car-image-${downloadedImages.length + 1}.png`
+                });
+            }
+
+            // I-delete ang mensahe ng user para malinis
+            await msg.delete().catch(() => {});
+
+            // --- STEP 4: I-post ang showcase ---
             const isForum = currentChannel.type === ChannelType.GuildForum;
+            const contentMessage = `🚗 **${title}**\n\n${description}\n\n📸 **${downloadedImages.length} images uploaded**`;
 
-            // Build content
-            const content = `🚗 **${title}**\n\n${description}\n\n📸 **${collectedImages.length} images uploaded**`;
+            if (isForum) {
+                const thread = await currentChannel.threads.create({
+                    name: title,
+                    autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+                    message: {
+                        content: contentMessage,
+                        files: downloadedImages
+                    }
+                });
 
-            try {
-                if (isForum) {
-                    // Forum Channel: gumawa ng thread
-                    const thread = await currentChannel.threads.create({
-                        name: title,
-                        autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-                        message: {
-                            content: content,
-                            files: collectedImages
-                        }
-                    });
-
-                    await modalInteraction.editReply({
-                        content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n📸 ${collectedImages.length} images uploaded.`
-                    });
-                } else {
-                    // Text Channel: send normal message
-                    await currentChannel.send({
-                        content: content,
-                        files: collectedImages
-                    });
-
-                    await modalInteraction.editReply({
-                        content: `✅ **Car showcase posted!**\n📌 <#${currentChannel.id}>\n📸 ${collectedImages.length} images uploaded.`
-                    });
-                }
-            } catch (error) {
-                console.error('Showcase error:', error);
                 await modalInteraction.editReply({
-                    content: `❌ Nagka-error: ${error.message}`
-                }).catch(() => {});
+                    content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n📸 ${downloadedImages.length} images uploaded.`
+                });
+            } else {
+                await currentChannel.send({
+                    content: contentMessage,
+                    files: downloadedImages
+                });
+
+                await modalInteraction.editReply({
+                    content: `✅ **Car showcase posted!**\n📌 <#${currentChannel.id}>\n📸 ${downloadedImages.length} images uploaded.`
+                });
             }
 
         } catch (error) {
             if (error.code === 'time') {
                 await interaction.reply({
-                    content: '⏳ Timeout: Hindi mo na-submit ang modal sa loob ng 5 minuto.',
+                    content: '⏳ Timeout: Hindi mo na-submit ang modal o hindi ka nag-upload ng images sa loob ng 5 minuto.',
                     flags: MessageFlags.Ephemeral
                 }).catch(() => {});
             } else {
-                console.error('Modal error:', error);
+                console.error('Showcase error:', error);
+                await interaction.reply({
+                    content: `❌ Nagka-error: ${error.message}`,
+                    flags: MessageFlags.Ephemeral
+                }).catch(() => {});
             }
         }
     }
