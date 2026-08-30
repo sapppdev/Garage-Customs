@@ -26,7 +26,7 @@ export default {
 
         const titleInput = new TextInputBuilder()
             .setCustomId('showcase_title')
-            .setLabel(' Pamagat ng Sasakyan')
+            .setLabel('🚗 Pamagat ng Sasakyan')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('e.g., Honda Civic FD2 Type R')
             .setRequired(true)
@@ -80,7 +80,7 @@ export default {
             const currentChannel = interaction.channel;
 
             await modalInteraction.editReply({
-                content: ` **Mag-upload ng hanggang 4 na larawan** sa isang mensahe.\n\n` +
+                content: `📸 **Mag-upload ng hanggang 4 na larawan** sa isang mensahe.\n\n` +
                          `Title: **${title}**\n\n` +
                          `📎 Pumili ng **1 hanggang 4 na larawan** at i-send sa channel na ito.\n` +
                          `⏳ Maghihintay ako ng 5 minuto.\n` +
@@ -150,6 +150,9 @@ export default {
             await msg.delete().catch(() => {});
 
             // --- STEP 4: I-post ang showcase ---
+            // ✅ BINAGO: Wala nang 🚗 at 📸 4 images uploaded
+            const contentMessage = `${title}\n\n${description}`;
+
             const isForum = currentChannel.type === ChannelType.GuildForum;
 
             if (isForum) {
@@ -163,7 +166,7 @@ export default {
                 });
 
                 await modalInteraction.editReply({
-                    content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n ${downloadedImages.length}`
+                    content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n📸 ${downloadedImages.length} images uploaded.`
                 });
             } else {
                 await currentChannel.send({
@@ -172,7 +175,7 @@ export default {
                 });
 
                 await modalInteraction.editReply({
-                    content: `✅ **Car showcase posted!**\n📌 <#${currentChannel.id}>\n ${downloadedImages.length}`
+                    content: `✅ **Car showcase posted!**\n📌 <#${currentChannel.id}>\n📸 ${downloadedImages.length} images uploaded.`
                 });
             }
 
