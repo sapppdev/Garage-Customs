@@ -161,30 +161,20 @@ export default {
             }
 
             // Build review message (plain text)
-// Embed version (alternative)
-const reviewEmbed = new EmbedBuilder()
-    .setTitle('⭐ Customer Review')
-    .setDescription(
-        `**Customer:** ${interaction.user}\n\n` +
-        `**Rating:** ${stars}\n\n` +
-        `**💬 Feedback:**\n${feedback}`
-    )
-    .setColor(getColor('primary') || '#00FF00')
-    .setTimestamp()
-    .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }));
+            let reviewContent = `⭐ **Customer Review**\n\n` +
+                                `**Customer:** ${interaction.user}\n` +
+                                `**Rating:** ${stars}\n\n` +
+                                `**💬 Feedback:**\n${feedback}`;
 
-if (imageAttachment) {
-    // For embed, we need to attach the file and set image using the attachment URL
-    // We'll use the attachment's URL (which we get after sending)
-    // Alternatively, we can attach and then use the attachment's URL from the sent message
-    // But easier: use the image url if we have it, but that didn't work.
-    // So for embed, we can just attach the file and it will show as a thumbnail automatically.
-    reviewEmbed.setImage('attachment://review-image.png');
-    // Then send with the file.
-    await reviewChannel.send({ embeds: [reviewEmbed], files: [imageAttachment] });
-} else {
-    await reviewChannel.send({ embeds: [reviewEmbed] });
-}
+            // Send with attachment (if any)
+            const messageOptions = {
+                content: reviewContent
+            };
+            if (imageAttachment) {
+                messageOptions.files = [imageAttachment];
+            }
+
+            await reviewChannel.send(messageOptions);
 
             // Delete original rating panel using panelMessageId
             if (panelMessageId) {
