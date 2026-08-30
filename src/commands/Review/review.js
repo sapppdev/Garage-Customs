@@ -26,7 +26,7 @@ export default {
             option
                 .setName('customer')
                 .setDescription(
-                    'Customer who is allowed to submit the review.'
+                    'Customer who will submit the review.'
                 )
                 .setRequired(true)
         )
@@ -35,7 +35,7 @@ export default {
             option
                 .setName('review_channel')
                 .setDescription(
-                    'Review channel. Leave empty to use #customer-reviews.'
+                    'Review channel. Leave empty for #customer-reviews.'
                 )
                 .addChannelTypes(
                     ChannelType.GuildText
@@ -75,8 +75,8 @@ export default {
             if (!reviewChannel) {
                 return await interaction.reply({
                     content:
-                        '❌ I could not find the review channel.\n\n' +
-                        'Please create a channel named `#customer-reviews`.',
+                        '❌ I could not find `#customer-reviews`.\n\n' +
+                        'Please create a channel named `customer-reviews`.',
                     flags:
                         MessageFlags.Ephemeral
                 });
@@ -85,7 +85,7 @@ export default {
             if (customer.bot) {
                 return await interaction.reply({
                     content:
-                        '❌ Bots cannot submit customer reviews.',
+                        '❌ Bots cannot submit reviews.',
                     flags:
                         MessageFlags.Ephemeral
                 });
@@ -110,7 +110,7 @@ export default {
 
                         'We would appreciate your feedback about your experience.\n\n' +
 
-                        '**Please select your rating below:**\n\n' +
+                        '**Please select your rating:**\n\n' +
 
                         '⭐ **1 Star**\n' +
                         '⭐⭐ **2 Stars**\n' +
@@ -118,8 +118,7 @@ export default {
                         '⭐⭐⭐⭐ **4 Stars**\n' +
                         '⭐⭐⭐⭐⭐ **5 Stars**\n\n' +
 
-                        '**💬 Feedback**\n' +
-                        'After selecting a rating, you will be asked to write your feedback.'
+                        'After selecting a rating, you will be asked to provide your feedback.'
                     )
                     .setColor(
                         getColor('primary')
