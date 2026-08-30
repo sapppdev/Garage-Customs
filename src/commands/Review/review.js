@@ -9,145 +9,202 @@ import {
     ChannelType
 } from 'discord.js';
 
+import { getColor } from '../../config/bot.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName('review')
-        .setDescription('Manage the Garage Customs customer review system.')
+        .setDescription('Request a customer review for Garage Customs.')
+
         .setDefaultMemberPermissions(
-            PermissionFlagsBits.ManageChannels
+            PermissionFlagsBits.ManageMessages
         )
 
-        .addSubcommand(subcommand =>
-            subcommand
-                .setName('setup')
+        .addUserOption(option =>
+            option
+                .setName('customer')
                 .setDescription(
-                    'Send the customer review panel.'
+                    'Customer who is allowed to submit the review.'
                 )
+                .setRequired(true)
+        )
 
-                .addChannelOption(option =>
-                    option
-                        .setName('channel')
-                        .setDescription(
-                            'Channel where customer reviews will be posted.'
-                        )
-                        .addChannelTypes(
-                            ChannelType.GuildText
-                        )
-                        .setRequired(true)
+        .addChannelOption(option =>
+            option
+                .setName('review_channel')
+                .setDescription(
+                    'Where the completed review will be posted. Optional if #customer-reviews exists.'
                 )
+                .addChannelTypes(ChannelType.GuildText)
+                .setRequired(false)
         ),
 
-    category: 'review',
+    category: 'Review',
 
     async execute(interaction) {
+        try {
+            const customer =
+                interaction.options.getUser('customer');
 
-        const subcommand =
-            interaction.options.getSubcommand();
-
-        if (subcommand !== 'setup') {
-            return;
-        }
-
-        const channel =
-            interaction.options.getChannel('channel');
-
-        const embed =
-            new EmbedBuilder()
-                .setTitle(
-                    '⭐ CUSTOMER REVIEW'
-                )
-                .setDescription(
-                    '**How would you rate your experience with Garage Customs?**\n\n' +
-
-                    '⭐ **1 Star** — Very Bad\n' +
-                    '⭐⭐ **2 Stars** — Bad\n' +
-                    '⭐⭐⭐ **3 Stars** — Average\n' +
-                    '⭐⭐⭐⭐ **4 Stars** — Good\n' +
-                    '⭐⭐⭐⭐⭐ **5 Stars** — Excellent\n\n' +
-
-                    '**💬 Feedback**\n' +
-                    'Please tell us about your experience with Garage Customs.\n' +
-                    'Your feedback helps us improve our service.'
-                )
-                .setColor('#E10600')
-                .setFooter({
-                    text:
-                        'Garage Customs • Customer Reviews'
-                });
-
-        const buttons =
-            new ActionRowBuilder()
-                .addComponents(
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            'review_1'
-                        )
-                        .setLabel('1')
-                        .setEmoji('⭐')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        ),
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            'review_2'
-                        )
-                        .setLabel('2')
-                        .setEmoji('⭐')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        ),
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            'review_3'
-                        )
-                        .setLabel('3')
-                        .setEmoji('⭐')
-                        .setStyle(
-                            ButtonStyle.Secondary
-                        ),
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            'review_4'
-                        )
-                        .setLabel('4')
-                        .setEmoji('⭐')
-                        .setStyle(
-                            ButtonStyle.Primary
-                        ),
-
-                    new ButtonBuilder()
-                        .setCustomId(
-                            'review_5'
-                        )
-                        .setLabel('5')
-                        .setEmoji('⭐')
-                        .setStyle(
-                            ButtonStyle.Success
-                        )
+            let reviewChannel =
+                interaction.options.getChannel(
+                    'review_channel'
                 );
 
-        try {
+            // If no channel was selected,
+            // automatically find #customer-reviews.
+            if (!reviewChannel) {
+                reviewChannel =
+                    interaction.guild.channels.cache.find(
+                        channel =>
+                            channel.type === ChannelType.GuildText &&
+                            [
+                                'customer-reviews',
+                                'customer-review',
+                                'reviews'
+                            ].includes(
+                                channel.name.toLowerCase()
+                            )
+                    );
+            }
 
-            await channel.send({
+            if (!reviewChannel) {
+                return await interaction.reply({
+                    content:
+                        '❌ I could not find a review channel.\n\n' +
+                        'Create a channel named `#customer-reviews` ' +
+                        'or use the `review_channel` option.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            if (customer.bot) {
+                return await interaction.reply({
+                    content:
+                        '❌ Bots cannot submit customer reviews.',
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            const ticketChannelId =
+                interaction.channel.id;
+
+            const reviewChannelId =
+                reviewChannel.id;
+
+            const customerId =
+                customer.id;
+
+            const embed =
+                new EmbedBuilder()
+                    .setTitle(
+                        '⭐ GARAGE CUSTOMS CUSTOMER REVIEW'
+                    )
+                    .setDescription(
+                        `${customer}, thank you for choosing **Garage Customs**!\n\n` +
+
+                        'We would appreciate your feedback about your experience.\n\n' +
+
+                        '**Please select your rating below:**\n\n' +
+
+                        '⭐ **1 Star** — Very Bad\n' +
+                        '⭐⭐ **2 Stars** — Bad\n' +
+                        '⭐⭐⭐ **3 Stars** — Average\n' +
+                        '⭐⭐⭐⭐ **4 Stars** — Good\n' +
+                        '⭐⭐⭐⭐⭐ **5 Stars** — Excellent\n\n' +
+
+                        'After selecting a rating, you will be asked to write your feedback.'
+                    )
+                    .setColor(
+                        getColor('primary')
+                    )
+                    .setFooter({
+                        text:
+                            'Garage Customs • Customer Review'
+                    })
+                    .setTimestamp();
+
+            /*
+             * customId format:
+             *
+             * garage_review:
+             * customerId:
+             * reviewChannelId:
+             * ticketChannelId:
+             * rating
+             */
+
+            const row =
+                new ActionRowBuilder()
+                    .addComponents(
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `garage_review:${customerId}:${reviewChannelId}:${ticketChannelId}:1`
+                            )
+                            .setLabel('1')
+                            .setEmoji('⭐')
+                            .setStyle(
+                                ButtonStyle.Secondary
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `garage_review:${customerId}:${reviewChannelId}:${ticketChannelId}:2`
+                            )
+                            .setLabel('2')
+                            .setEmoji('⭐')
+                            .setStyle(
+                                ButtonStyle.Secondary
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `garage_review:${customerId}:${reviewChannelId}:${ticketChannelId}:3`
+                            )
+                            .setLabel('3')
+                            .setEmoji('⭐')
+                            .setStyle(
+                                ButtonStyle.Secondary
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `garage_review:${customerId}:${reviewChannelId}:${ticketChannelId}:4`
+                            )
+                            .setLabel('4')
+                            .setEmoji('⭐')
+                            .setStyle(
+                                ButtonStyle.Primary
+                            ),
+
+                        new ButtonBuilder()
+                            .setCustomId(
+                                `garage_review:${customerId}:${reviewChannelId}:${ticketChannelId}:5`
+                            )
+                            .setLabel('5')
+                            .setEmoji('⭐')
+                            .setStyle(
+                                ButtonStyle.Success
+                            )
+                    );
+
+            await interaction.channel.send({
+                content: `${customer}`,
                 embeds: [embed],
-                components: [buttons]
+                components: [row]
             });
 
             await interaction.reply({
                 content:
-                    `✅ Customer review panel sent to ${channel}.`,
-                flags:
-                    MessageFlags.Ephemeral
+                    `✅ Review request sent for ${customer}.\n` +
+                    `Completed reviews will be posted in ${reviewChannel}.`,
+                flags: MessageFlags.Ephemeral
             });
 
         } catch (error) {
-
             console.error(
-                'Review setup error:',
+                'Review command error:',
                 error
             );
 
@@ -157,7 +214,7 @@ export default {
             ) {
                 await interaction.reply({
                     content:
-                        '❌ Failed to send the review panel.',
+                        '❌ Something went wrong while creating the review request.',
                     flags:
                         MessageFlags.Ephemeral
                 });
