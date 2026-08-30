@@ -82,16 +82,16 @@ export default {
             )
             .setRequired(true)
             .setMinLength(10)
-            .setMaxLength(2000);
+            .setMaxLength(1850);  // ✅ BINAGO: 1850 para may allowance
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(descriptionInput)
         );
 
-        // I-show ang modal (hindi pa nagre-reply)
+        // I-show ang modal
         await interaction.showModal(modal);
 
-        // Magse-setup ng collector para sa modal submission
+        // Mag-setup ng collector para sa modal submission
         const filter = (i) =>
             i.customId === `showcase_modal_${interaction.id}` &&
             i.user.id === interaction.user.id;
@@ -106,7 +106,7 @@ export default {
             await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
 
             // Kunin ang description mula sa modal
-            const description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
+            let description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
 
             if (!description) {
                 return await modalInteraction.editReply({
@@ -134,9 +134,23 @@ export default {
                     });
                 }
 
-                // Build content
+                // Build content - check length
                 let content = `🚗 **${title}**\n\n${description}`;
-                content += `\n\n📸 **${attachments.length} images uploaded**`;
+                const imageCountText = `\n\n📸 **${attachments.length} images uploaded**`;
+                
+                // ✅ SIGURADUHIN na hindi lalampas sa 2000 characters
+                if (content.length + imageCountText.length > 2000) {
+                    // Putulin ang description kung sobra
+                    const maxDescLength = 2000 - title.length - imageCountText.length - 10; // 10 para sa formatting
+                    if (maxDescLength > 0) {
+                        description = description.substring(0, maxDescLength) + '...';
+                        content = `🚗 **${title}**\n\n${description}`;
+                    } else {
+                        // Kung sobrang ikli ng allowance, i-force na lang
+                        content = `🚗 **${title}**\n\n${description.substring(0, 1800)}...`;
+                    }
+                }
+                content += imageCountText;
 
                 // --- KUNG FORUM CHANNEL: Gumawa ng thread ---
                 if (isForum) {
