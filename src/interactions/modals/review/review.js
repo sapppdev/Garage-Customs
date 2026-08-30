@@ -141,7 +141,7 @@ export default {
             }
 
             // --- Send review as plain text (no embed) ---
-            let reviewContent = `⭐ **Customer Review**\n\n` +
+            let reviewContent = `**Customer Review**\n\n` +
                                 `**Customer:** ${interaction.user}\n` +
                                 `**Rating:** ${stars}\n\n` +
                                 `**💬 Feedback:**\n${feedback}`;
