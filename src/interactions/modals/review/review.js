@@ -146,29 +146,13 @@ export default {
                                 `**Rating:** ${stars}\n\n` +
                                 `**💬 Feedback:**\n${feedback}`;
 
-            const files = imageUrl ? [imageUrl] : [];
+            // ✅ FIXED: attach image properly
+            const files = imageUrl ? [{ attachment: imageUrl, name: 'review-image.png' }] : [];
 
             await reviewChannel.send({
                 content: reviewContent,
                 files: files
             });
-
-            // If you prefer embed, uncomment the block below and comment the above.
-            /*
-            const reviewEmbed = new EmbedBuilder()
-                .setTitle('⭐ Customer Review')
-                .setDescription(
-                    `**Customer**\n${interaction.user}\n\n` +
-                    `**Rating**\n${stars}\n\n` +
-                    `**💬 Feedback**\n${feedback}`
-                )
-                .setColor(getColor('primary') || '#00FF00')
-                .setThumbnail(interaction.user.displayAvatarURL({ size: 256 }))
-                .setFooter({ text: 'Garage Customs • Customer Review' })
-                .setTimestamp();
-            if (imageUrl) reviewEmbed.setImage(imageUrl);
-            await reviewChannel.send({ embeds: [reviewEmbed] });
-            */
 
             // Delete the original rating panel using the saved message ID
             if (panelMessageId) {
