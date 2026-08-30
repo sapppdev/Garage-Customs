@@ -38,7 +38,8 @@ export default {
                 );
             }
 
-            // Only the selected customer can review
+            // Only the customer selected by /review
+            // can use the review.
             if (
                 interaction.user.id !==
                 customerId
@@ -89,7 +90,6 @@ export default {
                         `${stars} Your Review`
                     );
 
-            // Feedback
             const feedback =
                 new TextInputBuilder()
                     .setCustomId(
@@ -108,37 +108,13 @@ export default {
                     .setMinLength(5)
                     .setMaxLength(1000);
 
-            // Optional image URL
-            const image =
-                new TextInputBuilder()
-                    .setCustomId(
-                        'review_image'
-                    )
-                    .setLabel(
-                        'Picture (Optional)'
-                    )
-                    .setPlaceholder(
-                        'Paste an image URL here (optional)...'
-                    )
-                    .setStyle(
-                        TextInputStyle.Short
-                    )
-                    .setRequired(false)
-                    .setMaxLength(1000);
-
             modal.addComponents(
                 new ActionRowBuilder()
                     .addComponents(
                         feedback
-                    ),
-
-                new ActionRowBuilder()
-                    .addComponents(
-                        image
                     )
             );
 
-            // Immediately open modal
             await interaction.showModal(
                 modal
             );
