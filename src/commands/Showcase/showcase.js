@@ -82,16 +82,14 @@ export default {
             )
             .setRequired(true)
             .setMinLength(10)
-            .setMaxLength(1850);  // ✅ BINAGO: 1850 para may allowance
+            .setMaxLength(1800);  // Bawas pa para sigurado
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(descriptionInput)
         );
 
-        // I-show ang modal
         await interaction.showModal(modal);
 
-        // Mag-setup ng collector para sa modal submission
         const filter = (i) =>
             i.customId === `showcase_modal_${interaction.id}` &&
             i.user.id === interaction.user.id;
@@ -99,13 +97,11 @@ export default {
         try {
             const modalInteraction = await interaction.awaitModalSubmit({
                 filter,
-                time: 300000 // 5 minutes
+                time: 300000
             });
 
-            // I-defer agad para hindi mag-timeout
             await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            // Kunin ang description mula sa modal
             let description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
 
             if (!description) {
@@ -114,12 +110,11 @@ export default {
                 });
             }
 
-            // --- Ngayon i-process ang pag-upload ---
             const currentChannel = interaction.channel;
             const isForum = currentChannel.type === ChannelType.GuildForum;
 
             try {
-                // I-download ang lahat ng images
+                // I-download ang mga images
                 const attachments = [];
                 for (let i = 0; i < images.length; i++) {
                     const img = images[i];
@@ -134,31 +129,36 @@ export default {
                     });
                 }
 
-                // Build content - check length
-                let content = `🚗 **${title}**\n\n${description}`;
-                const imageCountText = `\n\n📸 **${attachments.length} images uploaded**`;
-                
-                // ✅ SIGURADUHIN na hindi lalampas sa 2000 characters
-                if (content.length + imageCountText.length > 2000) {
-                    // Putulin ang description kung sobra
-                    const maxDescLength = 2000 - title.length - imageCountText.length - 10; // 10 para sa formatting
-                    if (maxDescLength > 0) {
-                        description = description.substring(0, maxDescLength) + '...';
-                        content = `🚗 **${title}**\n\n${description}`;
-                    } else {
-                        // Kung sobrang ikli ng allowance, i-force na lang
-                        content = `🚗 **${title}**\n\n${description.substring(0, 1800)}...`;
-                    }
-                }
-                content += imageCountText;
+                // --- BUILDA ANG CONTENT NA MAY LENGTH CHECK ---
+                const imageText = `\n\n📸 **${attachments.length} images uploaded**`;
+                const titlePrefix = `🚗 **`;
+                const titleSuffix = `**\n\n`;
+                const baseContent = `${titlePrefix}${title}${titleSuffix}${description}`;
 
-                // --- KUNG FORUM CHANNEL: Gumawa ng thread ---
+                // Compute max allowed length para sa content (excluding imageText)
+                const maxContentLength = 2000 - imageText.length;
+
+                let finalContent = baseContent;
+                if (finalContent.length > maxContentLength) {
+                    // Putulin ang description kung sobra
+                    const overflow = finalContent.length - maxContentLength;
+                    const descCut = description.length - overflow - 3; // -3 for '...'
+                    if (descCut > 10) {
+                        description = description.substring(0, descCut) + '...';
+                    } else {
+                        description = description.substring(0, 100) + '...'; // fallback
+                    }
+                    finalContent = `${titlePrefix}${title}${titleSuffix}${description}`;
+                }
+                finalContent += imageText;
+
+                // --- I-SEND ---
                 if (isForum) {
                     const thread = await currentChannel.threads.create({
                         name: title,
                         autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
                         message: {
-                            content: content,
+                            content: finalContent,
                             files: attachments
                         }
                     });
@@ -166,11 +166,9 @@ export default {
                     await modalInteraction.editReply({
                         content: `✅ **Car showcase posted!**\n📌 ${thread.url}\n📸 ${attachments.length} images uploaded.`
                     });
-                } 
-                // --- KUNG TEXT CHANNEL: Send as normal message ---
-                else {
+                } else {
                     await currentChannel.send({
-                        content: content,
+                        content: finalContent,
                         files: attachments
                     });
 
@@ -182,12 +180,11 @@ export default {
             } catch (error) {
                 console.error('Showcase error:', error);
                 await modalInteraction.editReply({
-                    content: `❌ Nagka-error sa pag-upload: ${error.message}`
+                    content: `❌ Nagka-error: ${error.message}`
                 }).catch(() => {});
             }
 
         } catch (error) {
-            // Timeout or user canceled
             if (error.code === 'time') {
                 await interaction.editReply({
                     content: '⏳ Timeout: Hindi mo na-submit ang description sa loob ng 5 minuto.',
@@ -195,6 +192,10 @@ export default {
                 }).catch(() => {});
             } else {
                 console.error('Modal error:', error);
+                await interaction.editReply({
+                    content: '❌ May error sa pag-process ng modal.',
+                    flags: MessageFlags.Ephemeral
+                }).catch(() => {});
             }
         }
     }
