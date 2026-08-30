@@ -98,7 +98,7 @@ export default {
             let content = `**${title}**\n\n${description}`;
             
             // Add image count
-            content += `\n\n**${attachments.length} images uploaded**`;
+            
 
             // --- KUNG FORUM CHANNEL: Gumawa ng thread ---
             if (isForum) {
