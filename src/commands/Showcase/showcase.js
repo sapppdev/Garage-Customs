@@ -95,10 +95,10 @@ export default {
             }
 
             // BUILd content
-            let content = `🚗 **${title}**\n\n${description}`;
+            let content = `**${title}**\n\n${description}`;
             
             // Add image count
-            content += `\n\n📸 **${attachments.length} images uploaded**`;
+            content += `\n\n**${attachments.length} images uploaded**`;
 
             // --- KUNG FORUM CHANNEL: Gumawa ng thread ---
             if (isForum) {
