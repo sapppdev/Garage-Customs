@@ -151,7 +151,6 @@ export default {
 
             // --- STEP 4: I-post ang showcase ---
             const isForum = currentChannel.type === ChannelType.GuildForum;
-            const contentMessage = `🚗 **${title}**\n\n${description}\n\n📸 **${downloadedImages.length} images uploaded**`;
 
             if (isForum) {
                 const thread = await currentChannel.threads.create({
