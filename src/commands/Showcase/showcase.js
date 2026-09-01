@@ -22,11 +22,11 @@ export default {
         // --- STEP 1: Modal para sa Title at Description ---
         const modal = new ModalBuilder()
             .setCustomId(`showcase_modal_${interaction.id}`)
-            .setTitle('Car Showcase');
+            .setTitle('Showcase');  // Pinalitan ng mas maikli
 
         const titleInput = new TextInputBuilder()
             .setCustomId('showcase_title')
-            .setLabel('🚗 Pamagat ng Sasakyan (optional)')
+            .setLabel('🚗 Pamagat (optional)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('e.g., Honda Civic FD2 Type R')
             .setRequired(false)
@@ -34,7 +34,7 @@ export default {
 
         const descInput = new TextInputBuilder()
             .setCustomId('showcase_description')
-            .setLabel('📝 Detalye ng Sasakyan (optional)')
+            .setLabel('📝 Detalye (optional)')
             .setStyle(TextInputStyle.Paragraph)
             .setPlaceholder(
                 '🔧 4 Spoiler\n' +
@@ -65,21 +65,21 @@ export default {
 
             await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
 
-            // Kunin ang values — puwedeng walang laman
+            // Kunin ang mga values
             const title = modalInteraction.fields.getTextInputValue('showcase_title').trim();
             const description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
 
-            // ✅ WALANG VALIDATION — kahit blanko, tuloy lang
-            // Kung walang laman, gumamit ng default
-            const finalTitle = title || 'Car Showcase';
-            const finalDesc = description || '';
+            // ✅ WALANG DEFAULT TEXT — kung walang laman, walang laman
+            const finalTitle = title || '';      // Walang default
+            const finalDesc = description || ''; // Walang default
 
             // --- STEP 2: Maghintay ng ISANG mensahe na may mga larawan ---
             const currentChannel = interaction.channel;
 
+            const promptTitle = finalTitle || '(no title)';
             await modalInteraction.editReply({
                 content: `📸 **Mag-upload ng hanggang 4 na larawan** sa isang mensahe.\n\n` +
-                         `Title: **${finalTitle}**\n\n` +
+                         `Title: **${promptTitle}**\n\n` +
                          `📎 Pumili ng **1 hanggang 4 na larawan** at i-send sa channel na ito.\n` +
                          `⏳ Maghihintay ako ng 5 minuto.\n` +
                          `I-type ang **"done"** para magpatuloy (kung walang images, cancel).`
@@ -148,17 +148,29 @@ export default {
             await msg.delete().catch(() => {});
 
             // --- STEP 4: I-post ang showcase ---
-            // ✅ Kung walang description, title lang
-            const contentMessage = finalDesc ? `${finalTitle}\n\n${finalDesc}` : finalTitle;
+            // ✅ BUILDA ANG CONTENT — KUNG WALANG TITLE/DESC, WALANG TEXT
+            let contentMessage = '';
+            if (finalTitle && finalDesc) {
+                contentMessage = `${finalTitle}\n\n${finalDesc}`;
+            } else if (finalTitle) {
+                contentMessage = finalTitle;
+            } else if (finalDesc) {
+                contentMessage = finalDesc;
+            } else {
+                contentMessage = ''; // Walang text — file lang
+            }
 
             const isForum = currentChannel.type === ChannelType.GuildForum;
 
+            // ✅ Thread name: kung walang title, gumamit ng default (hindi lalabas sa content)
+            const threadName = finalTitle || 'Showcase';
+
             if (isForum) {
                 const thread = await currentChannel.threads.create({
-                    name: finalTitle,
+                    name: threadName,
                     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
                     message: {
-                        content: contentMessage,
+                        content: contentMessage, // Puwedeng blanko
                         files: downloadedImages
                     }
                 });
@@ -168,7 +180,7 @@ export default {
                 });
             } else {
                 await currentChannel.send({
-                    content: contentMessage,
+                    content: contentMessage, // Puwedeng blanko
                     files: downloadedImages
                 });
 
