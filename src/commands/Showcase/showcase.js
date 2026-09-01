@@ -26,16 +26,15 @@ export default {
 
         const titleInput = new TextInputBuilder()
             .setCustomId('showcase_title')
-            .setLabel('🚗 Pamagat ng Sasakyan')
+            .setLabel('🚗 Pamagat ng Sasakyan (optional)')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('e.g., Honda Civic FD2 Type R')
             .setRequired(false)
-            .setMinLength(3)
             .setMaxLength(100);
 
         const descInput = new TextInputBuilder()
             .setCustomId('showcase_description')
-            .setLabel('📝 Detalye ng Sasakyan')
+            .setLabel('📝 Detalye ng Sasakyan (optional)')
             .setStyle(TextInputStyle.Paragraph)
             .setPlaceholder(
                 '🔧 4 Spoiler\n' +
@@ -45,7 +44,6 @@ export default {
                 '🛞 RAYS Volk Racing TE37'
             )
             .setRequired(false)
-            .setMinLength(10)
             .setMaxLength(1900);
 
         modal.addComponents(
@@ -67,21 +65,21 @@ export default {
 
             await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
 
+            // Kunin ang values — puwedeng walang laman
             const title = modalInteraction.fields.getTextInputValue('showcase_title').trim();
             const description = modalInteraction.fields.getTextInputValue('showcase_description').trim();
 
-            if (!title || !description) {
-                return await modalInteraction.editReply({
-                    content: '❌ Hindi pwedeng walang laman ang title o description.'
-                });
-            }
+            // ✅ WALANG VALIDATION — kahit blanko, tuloy lang
+            // Kung walang laman, gumamit ng default
+            const finalTitle = title || 'Car Showcase';
+            const finalDesc = description || '';
 
             // --- STEP 2: Maghintay ng ISANG mensahe na may mga larawan ---
             const currentChannel = interaction.channel;
 
             await modalInteraction.editReply({
                 content: `📸 **Mag-upload ng hanggang 4 na larawan** sa isang mensahe.\n\n` +
-                         `Title: **${title}**\n\n` +
+                         `Title: **${finalTitle}**\n\n` +
                          `📎 Pumili ng **1 hanggang 4 na larawan** at i-send sa channel na ito.\n` +
                          `⏳ Maghihintay ako ng 5 minuto.\n` +
                          `I-type ang **"done"** para magpatuloy (kung walang images, cancel).`
@@ -150,14 +148,14 @@ export default {
             await msg.delete().catch(() => {});
 
             // --- STEP 4: I-post ang showcase ---
-            // ✅ BINAGO: Wala nang 🚗 at 📸 4 images uploaded
-            const contentMessage = `${title}\n\n${description}`;
+            // ✅ Kung walang description, title lang
+            const contentMessage = finalDesc ? `${finalTitle}\n\n${finalDesc}` : finalTitle;
 
             const isForum = currentChannel.type === ChannelType.GuildForum;
 
             if (isForum) {
                 const thread = await currentChannel.threads.create({
-                    name: title,
+                    name: finalTitle,
                     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
                     message: {
                         content: contentMessage,
