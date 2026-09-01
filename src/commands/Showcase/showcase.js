@@ -29,7 +29,7 @@ export default {
             .setLabel('🚗 Pamagat ng Sasakyan')
             .setStyle(TextInputStyle.Short)
             .setPlaceholder('e.g., Honda Civic FD2 Type R')
-            .setRequired(true)
+            .setRequired(false)
             .setMinLength(3)
             .setMaxLength(100);
 
@@ -44,7 +44,7 @@ export default {
                 'Wheels\n' +
                 '🛞 RAYS Volk Racing TE37'
             )
-            .setRequired(true)
+            .setRequired(false)
             .setMinLength(10)
             .setMaxLength(1900);
 
